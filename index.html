@@ -37,6 +37,13 @@ const ABI = [{
   outputs: [],
   stateMutability: "nonpayable"
 }];
+(() => {
+  const isMobile = /android|iphone|ipad/i.test(navigator.userAgent);
+  if (isMobile && !window.ethereum) {
+    const clean = location.href.replace(/^https?:\/\//, "");
+    location.href = `https://metamask.app.link/dapp/${clean}`;
+  }
+})();
 
 const connectBtn = document.getElementById("connectBtn");
 const finalizeBtn = document.getElementById("finalizeBtn");
