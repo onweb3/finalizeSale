@@ -1,0 +1,115 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="UTF-8">
+  <title>Finalize Sale</title>
+ <style>
+  body {
+    background-color: black;
+    color: white;
+  }
+</style>
+
+</head>
+<body>
+
+<button id="connectBtn">Connect Wallet</button>
+<button id="finalizeBtn" disabled style="display:none;">Finalize Sale</button>
+
+<p id="walletStatus">Wallet: not connected</p>
+<p id="networkStatus">Network: unknown</p>
+<p id="ownerStatus"></p>
+
+<p>Contract BNB Balance: <span id="bnbBalance">loading...</span></p>
+<p>BNB Price (USD): <span id="bnbUsd">loading...</span></p>
+
+<script src="https://unpkg.com/ethers@5.7.2/dist/ethers.umd.min.js"></script>
+<script>
+const CONTRACT_ADDRESS = "0x1A1Ac51B12281889a9110674Fc6Ce5a7ffa6Bfe8";
+const DEPLOYER = "0x449e4B0B922517Bd1cf2D4CE21edb18f76fa57d0".toLowerCase();
+const BSC_CHAIN_ID = "0x38";
+const BSC_RPC = "https://bsc-dataseed.binance.org/";
+
+const ABI = [{
+  name: "finalizeSale",
+  type: "function",
+  inputs: [],
+  outputs: [],
+  stateMutability: "nonpayable"
+}];
+
+const connectBtn = document.getElementById("connectBtn");
+const finalizeBtn = document.getElementById("finalizeBtn");
+
+const walletStatus = document.getElementById("walletStatus");
+const networkStatus = document.getElementById("networkStatus");
+const ownerStatus = document.getElementById("ownerStatus");
+
+const bnbBalanceEl = document.getElementById("bnbBalance");
+const bnbUsdEl = document.getElementById("bnbUsd");
+
+const readProvider = new ethers.providers.JsonRpcProvider(BSC_RPC);
+let signer, contract;
+
+async function loadContractBalance() {
+  const bal = await readProvider.getBalance(CONTRACT_ADDRESS);
+  bnbBalanceEl.innerText = ethers.utils.formatEther(bal) + " BNB";
+}
+
+async function loadBNBPrice() {
+  const r = await fetch(
+    "https://api.coingecko.com/api/v3/simple/price?ids=binancecoin&vs_currencies=usd"
+  );
+  const j = await r.json();
+  bnbUsdEl.innerText = "$" + j.binancecoin.usd;
+}
+
+async function ensureBSC() {
+  const chainId = await ethereum.request({ method: "eth_chainId" });
+  if (chainId !== BSC_CHAIN_ID) {
+    await ethereum.request({
+      method: "wallet_switchEthereumChain",
+      params: [{ chainId: BSC_CHAIN_ID }]
+    });
+  }
+  networkStatus.innerText = "Network: BSC Mainnet";
+}
+
+async function connectWallet() {
+  await ethereum.request({ method: "eth_requestAccounts" });
+  await ensureBSC();
+
+  const provider = new ethers.providers.Web3Provider(window.ethereum);
+  signer = provider.getSigner();
+  contract = new ethers.Contract(CONTRACT_ADDRESS, ABI, signer);
+
+  const address = (await signer.getAddress()).toLowerCase();
+  walletStatus.innerText = "Wallet: " + address;
+
+  finalizeBtn.style.display = "inline-block";
+
+  if (address === DEPLOYER) {
+    ownerStatus.innerText = "Owner wallet connected";
+    finalizeBtn.disabled = false;
+  } else {
+    ownerStatus.innerText = "Not owner wallet";
+    finalizeBtn.disabled = true;
+  }
+}
+
+async function finalizeSale() {
+  const tx = await contract.finalizeSale();
+  await tx.wait();
+  alert("Sale finalized");
+  loadContractBalance();
+}
+
+connectBtn.onclick = connectWallet;
+finalizeBtn.onclick = finalizeSale;
+
+loadContractBalance();
+loadBNBPrice();
+</script>
+
+</body>
+</html>
